@@ -1704,7 +1704,7 @@ function listenForCalls() {
       const call = p.new;
       if (call.id !== activeCallId) return;
       if (call.status === 'accepted' && isCaller) {
-        // Receiver accepted — set their answer
+        // Receiver accepted — set their answer then add their ICE candidates
         console.log('[CALL] Receiver accepted. answer_sdp present:', !!call.answer_sdp);
         if (pc && call.answer_sdp) {
           try {
@@ -1714,18 +1714,20 @@ function listenForCalls() {
             console.log('[CALL] Parsed answer type:', answerObj?.type, 'has sdp:', !!answerObj?.sdp);
             await pc.setRemoteDescription(new RTCSessionDescription({ type: answerObj.type, sdp: answerObj.sdp }));
             console.log('[CALL] Remote description set from answer');
+            // Now safe to add receiver ICE candidates
+            if (call.ice_from_receiver) {
+              const candidates = JSON.parse(call.ice_from_receiver);
+              console.log('[ICE] Adding', candidates.length, 'receiver ICE candidates');
+              for (const c of candidates) {
+                try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch(e) { console.warn('[ICE] Failed:', e); }
+              }
+            }
           } catch(e) { console.error('setRemoteDescription error:', e); }
         }
       }
       if (call.status === 'declined' || call.status === 'ended') {
         showCallStatus('Call ended');
         setTimeout(cleanupCall, 1200);
-      }
-      if (call.ice_from_receiver && isCaller) {
-        const candidates = JSON.parse(call.ice_from_receiver);
-        for (const c of candidates) {
-          try { await pc?.addIceCandidate(new RTCIceCandidate(c)); } catch(e) {}
-        }
       }
     })
     .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'calls',
@@ -1736,10 +1738,10 @@ function listenForCalls() {
         showCallStatus('Call ended');
         setTimeout(cleanupCall, 1200);
       }
-      if (call.ice_from_caller && !isCaller) {
+      if (call.ice_from_caller && !isCaller && pc?.remoteDescription) {
         const candidates = JSON.parse(call.ice_from_caller);
         for (const c of candidates) {
-          try { await pc?.addIceCandidate(new RTCIceCandidate(c)); } catch(e) {}
+          try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch(e) {}
         }
       }
     })
@@ -1815,7 +1817,7 @@ async function startCall(userId, userName) {
       document.getElementById('videoRemotePlaceholder')?.style.setProperty('display','none');
     } else {
       const audio = document.getElementById('remoteAudio');
-      if (audio) audio.srcObject = e.streams[0];
+      if (audio) { audio.srcObject = e.streams[0]; audio.play().catch(()=>{}); }
     }
   };
 
@@ -1946,7 +1948,7 @@ async function startVideoCall(userId, userName) {
       document.getElementById('videoRemotePlaceholder')?.style.setProperty('display','none');
     } else {
       const audio = document.getElementById('remoteAudio');
-      if (audio) audio.srcObject = e.streams[0];
+      if (audio) { audio.srcObject = e.streams[0]; audio.play().catch(()=>{}); }
     }
   };
 
@@ -2127,7 +2129,7 @@ async function acceptCall() {
       document.getElementById('videoRemotePlaceholder')?.style.setProperty('display','none');
     } else {
       const audio = document.getElementById('remoteAudio');
-      if (audio) audio.srcObject = e.streams[0];
+      if (audio) { audio.srcObject = e.streams[0]; audio.play().catch(()=>{}); }
     }
   };
 
@@ -2170,7 +2172,18 @@ async function acceptCall() {
     if (typeof offerObj === 'string') offerObj = JSON.parse(offerObj);
     console.log('[CALL] Parsed offer type:', offerObj?.type, 'has sdp:', !!offerObj?.sdp);
     await pc.setRemoteDescription(new RTCSessionDescription({ type: offerObj.type, sdp: offerObj.sdp }));
-    console.log('[CALL] Remote description set. Creating answer...');
+    console.log('[CALL] Remote description set. Adding caller ICE candidates...');
+
+    // Add caller's ICE candidates NOW (after setRemoteDescription, before createAnswer)
+    if (callRow.ice_from_caller) {
+      const candidates = JSON.parse(callRow.ice_from_caller);
+      console.log('[CALL] Adding', candidates.length, 'caller ICE candidates');
+      for (const c of candidates) {
+        try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch(e) { console.warn('[ICE] Failed to add candidate:', e); }
+      }
+    }
+
+    console.log('[CALL] Creating answer...');
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     console.log('[CALL] Local description set. Waiting for ICE...');
@@ -2179,15 +2192,6 @@ async function acceptCall() {
   } catch(e) {
     console.error('[CALL] SDP negotiation failed:', e);
     cleanupCall(); return;
-  }
-
-  // Add caller's ICE candidates
-  if (callRow.ice_from_caller) {
-    const candidates = JSON.parse(callRow.ice_from_caller);
-    console.log('[CALL] Adding', candidates.length, 'caller ICE candidates');
-    for (const c of candidates) {
-      try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch(e) { console.warn('[ICE] Failed to add candidate:', e); }
-    }
   }
 
   // Save answer + status
