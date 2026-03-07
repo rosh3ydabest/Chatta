@@ -1813,7 +1813,17 @@ async function startCall(userId, userName) {
   };
 
   const iceCandidates = [];
-  pc.onicecandidate = e => { if (e.candidate) iceCandidates.push(e.candidate.toJSON()); };
+  pc.onicecandidate = e => {
+    if (e.candidate) {
+      console.log('[ICE] New candidate:', e.candidate.type, e.candidate.protocol, e.candidate.address);
+      iceCandidates.push(e.candidate.toJSON());
+    } else {
+      console.log('[ICE] Gathering complete. Total candidates:', iceCandidates.length);
+    }
+  };
+  pc.onicegatheringstatechange = () => console.log('[ICE] Gathering state:', pc.iceGatheringState);
+  pc.oniceconnectionstatechange = () => console.log('[ICE] Connection state:', pc.iceConnectionState);
+  pc.onsignalingstatechange = () => console.log('[SIG] Signaling state:', pc.signalingState);
 
   pc.onconnectionstatechange = () => {
     if (pc?.connectionState === 'connected') {
@@ -1933,7 +1943,17 @@ async function startVideoCall(userId, userName) {
   };
 
   const iceCandidates = [];
-  pc.onicecandidate = e => { if (e.candidate) iceCandidates.push(e.candidate.toJSON()); };
+  pc.onicecandidate = e => {
+    if (e.candidate) {
+      console.log('[ICE] New candidate:', e.candidate.type, e.candidate.protocol, e.candidate.address);
+      iceCandidates.push(e.candidate.toJSON());
+    } else {
+      console.log('[ICE] Gathering complete. Total candidates:', iceCandidates.length);
+    }
+  };
+  pc.onicegatheringstatechange = () => console.log('[ICE] Gathering state:', pc.iceGatheringState);
+  pc.oniceconnectionstatechange = () => console.log('[ICE] Connection state:', pc.iceConnectionState);
+  pc.onsignalingstatechange = () => console.log('[SIG] Signaling state:', pc.signalingState);
 
   pc.onconnectionstatechange = () => {
     if (pc?.connectionState === 'connected') {
@@ -2075,7 +2095,17 @@ async function acceptCall() {
   };
 
   const iceCandidates = [];
-  pc.onicecandidate = e => { if (e.candidate) iceCandidates.push(e.candidate.toJSON()); };
+  pc.onicecandidate = e => {
+    if (e.candidate) {
+      console.log('[ICE] New candidate:', e.candidate.type, e.candidate.protocol, e.candidate.address);
+      iceCandidates.push(e.candidate.toJSON());
+    } else {
+      console.log('[ICE] Gathering complete. Total candidates:', iceCandidates.length);
+    }
+  };
+  pc.onicegatheringstatechange = () => console.log('[ICE] Gathering state:', pc.iceGatheringState);
+  pc.oniceconnectionstatechange = () => console.log('[ICE] Connection state:', pc.iceConnectionState);
+  pc.onsignalingstatechange = () => console.log('[SIG] Signaling state:', pc.signalingState);
 
   pc.onconnectionstatechange = () => {
     if (pc?.connectionState === 'connected') {
