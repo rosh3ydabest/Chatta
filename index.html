@@ -1708,9 +1708,11 @@ function listenForCalls() {
         console.log('[CALL] Receiver accepted. answer_sdp present:', !!call.answer_sdp);
         if (pc && call.answer_sdp) {
           try {
-            const answerObj = JSON.parse(call.answer_sdp);
-            console.log('[CALL] Parsed answer type:', answerObj.type, 'sdp length:', answerObj.sdp?.length);
-            await pc.setRemoteDescription(new RTCSessionDescription(answerObj));
+            console.log('[CALL] Raw answer_sdp (first 200):', String(call.answer_sdp).substring(0, 200));
+            let answerObj = JSON.parse(call.answer_sdp);
+            if (typeof answerObj === 'string') answerObj = JSON.parse(answerObj);
+            console.log('[CALL] Parsed answer type:', answerObj?.type, 'has sdp:', !!answerObj?.sdp);
+            await pc.setRemoteDescription(new RTCSessionDescription({ type: answerObj.type, sdp: answerObj.sdp }));
             console.log('[CALL] Remote description set from answer');
           } catch(e) { console.error('setRemoteDescription error:', e); }
         }
@@ -2153,9 +2155,11 @@ async function acceptCall() {
   // Set offer and create answer
   try {
     console.log('[CALL] Setting remote description...');
-    const offerObj = JSON.parse(callRow.offer_sdp);
-    console.log('[CALL] Parsed offer type:', offerObj.type, 'sdp length:', offerObj.sdp?.length);
-    await pc.setRemoteDescription(new RTCSessionDescription(offerObj));
+    console.log('[CALL] Raw offer_sdp (first 200):', String(callRow.offer_sdp).substring(0, 200));
+    let offerObj = JSON.parse(callRow.offer_sdp);
+    if (typeof offerObj === 'string') offerObj = JSON.parse(offerObj);
+    console.log('[CALL] Parsed offer type:', offerObj?.type, 'has sdp:', !!offerObj?.sdp);
+    await pc.setRemoteDescription(new RTCSessionDescription({ type: offerObj.type, sdp: offerObj.sdp }));
     console.log('[CALL] Remote description set. Creating answer...');
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
