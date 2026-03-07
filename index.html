@@ -2055,20 +2055,30 @@ async function acceptCall() {
   isCaller = false;
   isMuted = false;
 
-  // Fetch the LATEST call row — the offer_sdp may not have been set yet when the ring came in
+  // Fetch the LATEST call row — retry up to 5x if offer_sdp isn't ready yet
   console.log('[CALL] Fetching latest call data for id:', incomingCallData.id);
-  const { data: callRow, error: fetchErr } = await db.from('calls')
-    .select('*').eq('id', incomingCallData.id).single();
+  let callRow = null;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt > 0) {
+      console.log('[CALL] offer_sdp not ready, retrying in 1s... attempt', attempt + 1);
+      await new Promise(r => setTimeout(r, 1000));
+    }
+    const { data, error: fetchErr } = await db.from('calls')
+      .select('*').eq('id', incomingCallData.id).single();
+    if (fetchErr) { console.error('[CALL] Fetch error:', fetchErr); break; }
+    if (data?.offer_sdp) { callRow = data; break; }
+    callRow = data;
+  }
 
-  if (fetchErr || !callRow) {
-    console.error('[CALL] Failed to fetch call row:', fetchErr);
+  if (!callRow) {
+    console.error('[CALL] Failed to fetch call row');
     cleanupCall(); return;
   }
-  console.log('[CALL] Call row fetched. offer_sdp present:', !!callRow.offer_sdp, 'ice_from_caller:', callRow.ice_from_caller);
+  console.log('[CALL] Call row fetched. offer_sdp present:', !!callRow.offer_sdp);
 
   if (!callRow.offer_sdp) {
-    console.error('[CALL] No offer_sdp — caller has not finished setting up yet');
-    alert('Call setup not ready yet, please try again.');
+    console.error('[CALL] No offer_sdp after retries');
+    alert('Call setup timed out. Please try again.');
     cleanupCall(); return;
   }
 
