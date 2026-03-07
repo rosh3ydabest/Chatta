@@ -1819,9 +1819,17 @@ async function startCall(userId, userName) {
     if (pc?.connectionState === 'connected') {
       showCallStatus('Connected');
       startCallTimer();
-    } else if (['disconnected','failed','closed'].includes(pc?.connectionState)) {
+    } else if (pc?.connectionState === 'failed') {
       showCallStatus('Call ended');
       setTimeout(cleanupCall, 1200);
+    } else if (pc?.connectionState === 'disconnected') {
+      // Give it 5 seconds to reconnect before ending
+      setTimeout(() => {
+        if (pc?.connectionState === 'disconnected' || pc?.connectionState === 'failed') {
+          showCallStatus('Call ended');
+          cleanupCall();
+        }
+      }, 5000);
     }
   };
 
@@ -1840,7 +1848,7 @@ async function startCall(userId, userName) {
   let elapsed = 0;
   const ringTimeout = setInterval(async () => {
     elapsed += 2;
-    if (elapsed >= 30) {
+    if (elapsed >= 60) {
       clearInterval(ringTimeout);
       await db.from('calls').update({ status: 'ended' }).eq('id', activeCallId);
       showCallStatus('No answer');
@@ -1931,9 +1939,17 @@ async function startVideoCall(userId, userName) {
     if (pc?.connectionState === 'connected') {
       showCallStatus('Connected');
       startCallTimer();
-    } else if (['disconnected','failed','closed'].includes(pc?.connectionState)) {
+    } else if (pc?.connectionState === 'failed') {
       showCallStatus('Call ended');
       setTimeout(cleanupCall, 1200);
+    } else if (pc?.connectionState === 'disconnected') {
+      // Give it 5 seconds to reconnect before ending
+      setTimeout(() => {
+        if (pc?.connectionState === 'disconnected' || pc?.connectionState === 'failed') {
+          showCallStatus('Call ended');
+          cleanupCall();
+        }
+      }, 5000);
     }
   };
 
@@ -1948,7 +1964,7 @@ async function startVideoCall(userId, userName) {
   let elapsed = 0;
   const ringTimeout = setInterval(async () => {
     elapsed += 2;
-    if (elapsed >= 30) {
+    if (elapsed >= 60) {
       clearInterval(ringTimeout);
       await db.from('calls').update({ status: 'ended' }).eq('id', activeCallId);
       showCallStatus('No answer');
@@ -2065,9 +2081,17 @@ async function acceptCall() {
     if (pc?.connectionState === 'connected') {
       showCallStatus('Connected');
       startCallTimer();
-    } else if (['disconnected','failed','closed'].includes(pc?.connectionState)) {
+    } else if (pc?.connectionState === 'failed') {
       showCallStatus('Call ended');
       setTimeout(cleanupCall, 1200);
+    } else if (pc?.connectionState === 'disconnected') {
+      // Give it 5 seconds to reconnect before ending
+      setTimeout(() => {
+        if (pc?.connectionState === 'disconnected' || pc?.connectionState === 'failed') {
+          showCallStatus('Call ended');
+          cleanupCall();
+        }
+      }, 5000);
     }
   };
 
@@ -2211,7 +2235,7 @@ function waitForIceGathering(pc) {
     if (pc.iceGatheringState === 'complete') { resolve(); return; }
     const check = () => { if (pc.iceGatheringState === 'complete') { pc.removeEventListener('icegatheringstatechange', check); resolve(); }};
     pc.addEventListener('icegatheringstatechange', check);
-    setTimeout(resolve, 3000); // max wait
+    setTimeout(resolve, 8000); // max wait — TURN servers need more time
   });
 }
 
